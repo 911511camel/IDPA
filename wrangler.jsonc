@@ -2,10 +2,16 @@
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "ipda",
   "compatibility_date": "2026-11-13",
+  "workers_dev": true,
+  "preview_urls": true,
   "observability": {
     "enabled": true
   },
   "assets": {
     "directory": "./dist"
-  }
+  },
+  "routes": [
+    { "pattern": "ipda.world", "custom_domain": true },
+    { "pattern": "www.ipda.world", "custom_domain": true }
+  ]
 }
