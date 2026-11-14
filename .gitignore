@@ -1,0 +1,10 @@
+# Raw media masters (not needed to serve the site)
+LOGO.jpg
+photo_*.jpg
+video_*.mp4
+*.txt
+
+# Tooling
+node_modules/
+.wrangler/
+.DS_Store
