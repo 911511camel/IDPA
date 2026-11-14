@@ -1,67 +1,38 @@
 # Deployment runbook — ipda.world
 
-Repo: <https://github.com/911511camel/IDPA>
-Cloudflare Pages project: `ipda` → `https://ipda.pages.dev`
-Domain: `ipda.world` (registered at GoDaddy)
+| Part | Where |
+|---|---|
+| Repo | <https://github.com/911511camel/IDPA> (`main`) |
+| Hosting | Cloudflare Workers `ipda`, account **911511@gmail.com** (`2520726af8a73ddd60097700ebec6562`) |
+| Live | <https://ipda.world> · <https://www.ipda.world> |
+| Staging | <https://ipda.911511.workers.dev> |
+| DNS | zone `ipda.world` in the same account, NS `bethany`/`kevin.ns.cloudflare.com` |
+| Cert | Google Trust Services, auto-renewed |
 
-## 1. GitHub
+## Deploy
 
-Remote is set to `git@github.com:911511camel/IDPA.git`.
-
-Deploy key on this machine (add with **Allow write access**):
-
-```
-ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIFJGK/nBWMC0mQmat/5pfQ3x1PkwFp1g4tAyeJ8QN0gw ipda-website-deploy
-```
-
-Repo → Settings → Deploy keys → Add deploy key → paste → tick *Allow write access*.
-
-Then:
-
-```bash
-git push -u origin main
-```
-
-## 2. Cloudflare Pages (direct upload)
-
-```bash
-npx wrangler pages deploy dist --project-name=ipda --branch=main
-```
-
-`dist/` is the deploy artifact: `index.html`, `_headers`, `robots.txt`, `logo-*.png`.
-Rebuild it after editing `index.html`:
+`dist/` is the upload artifact; rebuild it before every deploy:
 
 ```bash
 cp index.html _headers robots.txt logo-mark.png logo-full.png dist/
+
+CLOUDFLARE_API_TOKEN=$(cat ~/.config/ipda/cloudflare-911511) \
+CLOUDFLARE_ACCOUNT_ID=2520726af8a73ddd60097700ebec6562 \
+npx wrangler deploy
 ```
 
-## 3. Custom domain `ipda.world`
+`wrangler.jsonc` holds the worker name, the `dist` assets directory, `workers_dev`
+(staging URL) and the two custom-domain routes, so the domain stays attached on
+every deploy.
 
-Cloudflare Pages needs DNS control for an apex (`@`) domain, and GoDaddy has no
-CNAME flattening / ALIAS record. So the zone must live on Cloudflare:
+## Notes
 
-1. Cloudflare dashboard → **Add a site** → `ipda.world` → Free plan.
-2. Cloudflare shows two nameservers, e.g. `xxx.ns.cloudflare.com`.
-3. GoDaddy → **My Products → ipda.world → DNS → Nameservers → Change → I'll use my own**
-   → enter both Cloudflare nameservers → save.
-4. Wait for propagation (minutes to a few hours; Cloudflare emails when the zone is active).
-5. Cloudflare → **Workers & Pages → ipda → Custom domains → Set up a domain**
-   → `ipda.world` and `www.ipda.world` → both are created as CNAMEs automatically.
-
-Do **not** point GoDaddy's DNS at `ipda.pages.dev` directly: the apex would need an
-A record, which Pages cannot provide, and SSL would fail.
-
-### If the zone must stay on GoDaddy
-
-Keep `ipda.world` parked and serve only `www.ipda.world`:
-
-- GoDaddy DNS: CNAME `www` → `ipda.pages.dev`
-- GoDaddy **Forwarding**: `ipda.world` → `https://www.ipda.world`
-- Cloudflare Pages → Custom domains → add only `www.ipda.world`
-
-## 4. After the first deploy
-
-- Test `https://ipda.world` for console errors (Tailwind CDN + CSP is the risky part;
-  `_headers` allows `cdn.tailwindcss.com`, `fonts.googleapis.com`, `data:` images, inline scripts).
-- Add `meta description`, Open Graph tags and a favicon before promoting the domain — link
-  previews are currently blank.
+- `_headers` works with Workers static assets; it sets HSTS, CSP, nosniff,
+  frame options and long-lived caching for `logo-*.png`.
+- The CSP allows `cdn.tailwindcss.com` (the page still uses the CDN build),
+  `fonts.googleapis.com` / `fonts.gstatic.com` and Cloudflare Web Analytics.
+  If the CSS is ever compiled locally, drop `cdn.tailwindcss.com` from the policy.
+- Mail records (`MX`, SPF, DMARC, autodiscover) were intentionally kept in the
+  zone; only the GoDaddy parking `A` records and the old `www` CNAME were removed.
+- Tokens used for deploys live in `~/.config/ipda/` (mode 600). Revoke them at
+  <https://dash.cloudflare.com/profile/api-tokens> if the machine is retired.
